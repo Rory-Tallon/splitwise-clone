@@ -5,25 +5,27 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
+
+	_ "myapp/migrations"
 )
 
 func main() {
 	app := pocketbase.New()
 
 	// loosely check if it was executed using "go run"
-	isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
+	// isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
+	os.Args = append(os.Args, "--dir", "./pb_data") // adjust path if needed
 
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
 		// enable auto creation of migration files when making collection changes in the Dashboard
 		// (the isGoRun check is to enable it only during development)
-		Automigrate: isGoRun,
+		Automigrate: true,
 	})
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
@@ -49,7 +51,7 @@ func main() {
 			})
 
 			if err != nil {
-				fmt.Println("EWrror: ", err)
+				fmt.Println("Error: ", err)
 				return e.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch groups"})
 			}
 
@@ -62,10 +64,28 @@ func main() {
 			fmt.Println("Made it to status ok", groups_to_send)
 			return e.JSON(http.StatusOK, groups_to_send)
 		})
-		// }).Bind(apis.RequireAuth())
 
-		se.Router.GET("/api/expenses/", func(e *core.RequestEvent) error {
-			return e.JSON(http.StatusOK, {})
+		se.Router.GET("/api/expenses", func(e *core.RequestEvent) error {
+			groupName := e.Request.URL.Query().Get("groupName")
+
+			if groupName == "" {
+				return e.JSON(http.StatusBadRequest, map[string]string{
+					"error": "Missing groupId parameter",
+				})
+			}
+
+			expenses, err := e.App.FindRecordsByFilter("expense", "associated_group.name = {:groupName}", "-created", 0, 0,
+				dbx.Params{"groupName": groupName})
+
+			if err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{
+					"error": err.Error(),
+				})
+			}
+
+			app.ExpandRecords(expenses, []string{"payee", "payer"}, nil)
+
+			return e.JSON(http.StatusOK, expenses)
 		})
 
 		return se.Next()
