@@ -55,7 +55,7 @@ export default function GroupPage({ params }: { params: Promise<{ name: string }
             <div className="bg-white shadow-md rounded-lg p-6 text-black mt-5 ml-20 mr-20">
                 <h2>Expenses</h2>
                 {/*This is where we need to iterate over and add in all of the expense shit*/}
-                {expenses ? <ExpensesTableDisplay expenses={expenses} /> : <p>No expenses in this group</p>}
+                {expenses ? <ExpensesTableDisplay expenses={expenses} groupName={groupName} /> : <p>No expenses in this group</p>}
             </div>
         </div>
     );

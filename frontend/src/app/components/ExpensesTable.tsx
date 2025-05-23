@@ -15,9 +15,10 @@ interface Expense {
 
 interface ExpensesTableDisplayProps {
     expenses: Expense[]
+    groupName: string
 }
 
-export default function ExpensesTableDisplay({ expenses }: ExpensesTableDisplayProps) {
+export default function ExpensesTableDisplay({ expenses, groupName }: ExpensesTableDisplayProps) {
 
     const router = useRouter()
 
@@ -26,7 +27,7 @@ export default function ExpensesTableDisplay({ expenses }: ExpensesTableDisplayP
     }
 
     const handleCreateExpense = () => {
-        router.push(`../expenses/`)
+        router.push(`../expenses/create/${groupName}`)
     }
 
     return (
