@@ -15,6 +15,7 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
     const groupName = decodeURIComponent(use(params).name)
     const router = useRouter()
     const [user, setUser] = useState(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         // Check authentication status
@@ -32,6 +33,7 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
         amount: 0,
         payer: [],
         payee: [],
+        groupName: "",
     }) // store all of our form data here
 
     const [users, setUsers] = useState<User[] | null>(null)
@@ -41,7 +43,10 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
             const res = await fetch(`http://localhost:8090/api/users?groupName=${groupName}`);
             const msg = await res.json();
             if (res.ok) {
-                setUsers(msg)
+                console.log("These are the users: ", msg[0].expand.users_in_group)
+                let userDetails: any = msg[0].expand?.users_in_group
+                // userNames: User[] = userDetails.map(user => {user.name)
+                setUsers(userDetails)
             } else {
                 throw new Error(msg.error || 'Failed to fetch users.');
             }
@@ -55,18 +60,53 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
     };
 
     const handlePayChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const { name, value } = e.target
         const selected = Array.from(e.target.selectedOptions, (option) => option.value);
-        setForm((prev) => ({ ...prev, payees: selected }));
+        setForm((prev) => ({ ...prev, [name]: selected }));
     };
 
-    const handleSubmit = (e: React.ChangeEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.ChangeEvent<HTMLFormElement>) => {
         e.preventDefault();
-        onSubmit(form); // You can call a backend endpoint or mutate state here
+
+        const formToSend = {
+            ...form,
+            groupName: groupName
+        }
+
+        console.log("definitely making it to a race")
+
+        if (!formToSend.payer || !formToSend.name || !formToSend.payee || !formToSend.amount || formToSend.groupName === "") {
+            return;
+        }
+        console.log(formToSend)
+
+        try {
+
+            const response = await fetch("http://localhost:8090/api/add_expense", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(formToSend),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                setError("Error submitting form. Please try again.");
+            }
+
+
+            // redirect back to group page
+            router.push(`/../../groups/${groupName}`);
+        } catch (err) {
+            setError("Error submitting form. Please try again.");
+        }
     };
 
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl text-red font-bold mb-6 text-center">Create expense for group {groupName}</h1>
+            {error ? <h2>{error}</h2> : ""}
             <form onSubmit={handleSubmit} className="max-w-md mx-auto p-4 text-red bg-white rounded space-y-4">
                 <input
                     type="text"
@@ -104,7 +144,7 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
                 </select>
 
                 <select
-                    name="payees"
+                    name="payee"
                     multiple
                     value={form.payee}
                     onChange={handlePayChange}
