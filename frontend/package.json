@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "http-proxy-middleware": "^3.0.5",
     "next": "15.3.2",
     "pocketbase": "^0.26.0",
     "react": "^19.0.0",

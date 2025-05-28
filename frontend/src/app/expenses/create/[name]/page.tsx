@@ -40,7 +40,7 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
 
     useEffect(() => {
         const fetchUsers = async () => {
-            const res = await fetch(`http://localhost:8090/api/users?groupName=${groupName}`);
+            const res = await fetch(`/api/proxy/api/users?groupName=${groupName}`);
             const msg = await res.json();
             if (res.ok) {
                 console.log("These are the users: ", msg[0].expand.users_in_group)
@@ -82,7 +82,7 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
 
         try {
 
-            const response = await fetch("http://localhost:8090/api/add_expense", {
+            const response = await fetch("/api/proxy/api/add_expense", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

@@ -30,7 +30,7 @@ export default function GroupPage({ params }: { params: Promise<{ name: string }
         if (!user) return;
 
         const fetchExpenses = async () => {
-            const res = await fetch(`http://localhost:8090/api/expenses?groupName=${groupName}`);
+            const res = await fetch(`/api/proxy/api/expenses?groupName=${groupName}`);
 
             const msg = await res.json();
 

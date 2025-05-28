@@ -14,6 +14,14 @@ import (
 	_ "myapp/migrations"
 )
 
+type dataType struct {
+	Name      string   `json:"name"`
+	Amount    string   `json:"amount"`
+	Payer     []string `json:"payer"`
+	Payee     []string `json:"payee"`
+	GroupName string   `json:"groupName"`
+}
+
 func main() {
 	app := pocketbase.New()
 
@@ -29,7 +37,7 @@ func main() {
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		// Given a user id display what groups they are associated with
-		se.Router.GET("/api/groups/", func(e *core.RequestEvent) error {
+		se.Router.GET("/api/groups", func(e *core.RequestEvent) error {
 			user_id := e.Request.Header.Get("User-id")
 			groups, err := e.App.FindRecordsByFilter("groups", "users_in_group ~ {:userId}", "-created", 0, 0, dbx.Params{
 				"userId": user_id,
@@ -98,13 +106,7 @@ func main() {
 
 		// Post request of expenses and it to the ledger and the expenses table
 		se.Router.POST("/api/add_expense", func(e *core.RequestEvent) error {
-			data := struct {
-				Name      string   `json:"name"`
-				Amount    string   `json:"amount"`
-				Payer     []string `json:"payer"`
-				Payee     []string `json:"payee"`
-				GroupName string   `json:"groupName"`
-			}{}
+			data := dataType{}
 
 			fmt.Println("Made it here1")
 
@@ -113,14 +115,10 @@ func main() {
 				return e.JSON(http.StatusBadRequest, map[string]string{"Error": "Invalid Request body."})
 			}
 
-			fmt.Println("Made it here2")
-
 			expenses, err := app.FindCollectionByNameOrId("expense")
 			if err != nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Failed to find expenses table."})
 			}
-
-			fmt.Printf("group name %v", data.GroupName)
 
 			// grab the groupId from the groupName
 			groups, err := e.App.FindRecordsByFilter("groups", "name = {:groupName}", "-created", 0, 0,
@@ -143,11 +141,43 @@ func main() {
 				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save expense"})
 			}
 
-			updateLedger(data); //TO DO: need to write this
+			// updateLedger
+			ledger, err := app.FindCollectionByNameOrId("personal_ledger")
+			if err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Failed to find ledger table."})
+			}
+
+			record = core.NewRecord(ledger)
+			record.Set("owner", data.Payee)
+			record.Set("group", groupId)
+			record.Set("user_involved", data.Payer)
+			record.Set("amount", data.Amount)
+
+			if err := app.Save(record); err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save transaction"})
+			}
 
 			return e.JSON(http.StatusOK, record)
 		})
 
+		// Given a group and a user tell me their balances
+		se.Router.GET("/api/balances", func(e *core.RequestEvent) error {
+			groupName := e.Request.URL.Query().Get("groupName")
+
+
+			if groupName == "" {
+				return e.JSON(http.StatusBadRequest, map[string]string{
+					"error": "Missing groupName parameter",
+				})
+			}
+
+			// the way this is going to work is its going to use a dictionaryu
+			// where each key is a new payee name and the value is just how much
+			// is currently owed to them.
+			// then can just iterate over all relevant records to get the total
+			
+
+		})
 		return se.Next()
 	})
 

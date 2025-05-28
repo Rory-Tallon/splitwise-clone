@@ -38,7 +38,7 @@ export default function Dashboard() {
         console.log("User has been grabbed")
 
         const fetchData = async () => {
-            const res = await fetch('http://localhost:8090/api/groups/', {
+            const res = await fetch(`/api/proxy/api/groups/`, {
                 method: 'GET',
                 headers: {
                     "User-id": user.id
