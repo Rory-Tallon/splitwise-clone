@@ -164,7 +164,6 @@ func main() {
 		se.Router.GET("/api/balances", func(e *core.RequestEvent) error {
 			groupName := e.Request.URL.Query().Get("groupName")
 
-
 			if groupName == "" {
 				return e.JSON(http.StatusBadRequest, map[string]string{
 					"error": "Missing groupName parameter",
@@ -175,7 +174,21 @@ func main() {
 			// where each key is a new payee name and the value is just how much
 			// is currently owed to them.
 			// then can just iterate over all relevant records to get the total
-			
+
+			// literalyl just need the user and the group
+			// then we just filter the personal ledger by those two
+			// then for each
+			// wait weve imagined it all wrong
+			// it needs to record a transaction both ways.
+			// could do any their involved in as well
+			// like do money owed to them then run it again but do money they owe
+			// not efficient whatsoever
+			// could manage it in the same way as a dictionary
+			// which is to say where theres an entry without that owner and that payee
+			// create one or if there is one alter the amount.
+			// this would definitely be the fastest by far and would require very minimal lookups
+			// could liter
+			return e.JSON(http.StatusAccepted, nil)
 
 		})
 		return se.Next()
