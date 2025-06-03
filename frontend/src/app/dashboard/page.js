@@ -18,6 +18,14 @@ export default function Dashboard() {
         router.push(`/groups/${groupName}`);
     };
 
+    const handleCreateGroup = () => {
+        router.push(`/groups/`);
+    }
+
+    const handleGroupEdit = () => {
+        console.log("Edit group")
+    }
+
 
     useEffect(() => {
 
@@ -74,26 +82,28 @@ export default function Dashboard() {
             <Navbar />
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-                <div className="bg-white shadow-md rounded-lg p-6 text-black">
-                    <h2 className="text-xl font-semibold mb-4">Welcome, {user?.name || user?.email}!</h2>
-                    <p className="mb-2">Your account details:</p>
-                    <ul className="list-disc pl-6">
-                        <li>Email: {user?.email}</li>
-                        <li>User ID: {user?.id}</li>
-                        <li>Created: {new Date(user?.created).toLocaleString()}</li>
-                    </ul>
-                </div>
                 <div className="bg-white shadow-md rounded-lg p-6 text-black mt-5">
-                    <h2 className="text-xl font-bold mb-2">Groups</h2>
+                    <h2 className="flex justify-center text-xl font-bold mb-2">Groups</h2>
                     {groups?.map((group) => (
-                        <button
-                            key={group}
-                            onClick={() => handleClick(group)}
-                            className="block p-2 m-2 bg-blue-500 text-white rounded"
-                        >
-                            {group}
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                key={group}
+                                onClick={() => handleClick(group)}
+                                className="block p-2 m-2 mr-0 bg-blue-500 text-white rounded"
+                            >
+                                {group}
+                            </button>
+                            <button
+                                onClick={() => handleGroupEdit(group)}
+                                className="block p-2 m-2 ml-0 bg-blue-500 text-white rounded">
+                                ⚙️
+                            </button>
+                        </div>
                     ))}
+
+                    <button onClick={handleCreateGroup} className="block p-2 m-2 bg-[#1CC29F] text-white rounded">
+                        Create Group
+                    </button>
                 </div>
             </div>
         </main >

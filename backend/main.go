@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
@@ -108,8 +109,6 @@ func main() {
 		se.Router.POST("/api/add_expense", func(e *core.RequestEvent) error {
 			data := dataType{}
 
-			fmt.Println("Made it here1")
-
 			if err := e.BindBody(&data); err != nil {
 				fmt.Printf("ERROR %v\n", err)
 				return e.JSON(http.StatusBadRequest, map[string]string{"Error": "Invalid Request body."})
@@ -141,20 +140,44 @@ func main() {
 				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save expense"})
 			}
 
-			// updateLedger
+			// updateLedger - this needs to check if such a record exists already
 			ledger, err := app.FindCollectionByNameOrId("personal_ledger")
 			if err != nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Failed to find ledger table."})
 			}
 
-			record = core.NewRecord(ledger)
-			record.Set("owner", data.Payee)
-			record.Set("group", groupId)
-			record.Set("user_involved", data.Payer)
-			record.Set("amount", data.Amount)
+			already_exists, _ := e.App.FindRecordsByFilter("personal_ledger", "payer = {:payer} && payee = {:payee} && group = {:groupID}", "-created", 0, 0,
+				dbx.Params{"payer": data.Payer[0], "payee": data.Payee[0], "groupID": groupId})
 
-			if err := app.Save(record); err != nil {
-				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save transaction"})
+			if len(already_exists) != 0 {
+				// update the record
+				record_to_update := already_exists[0]
+				amount_to_change, _ := strconv.ParseFloat(data.Amount, 64)
+
+				floatVal, ok := record_to_update.Get("amount").(float64)
+
+				if !ok {
+					// It might be stored as float64 depending on how PocketBase parsed the JSON
+					log.Fatalf("Amount is not a number: %v", record_to_update.Get("amount"))
+				}
+
+				new_val := floatVal + float64(amount_to_change)
+
+				record_to_update.Set("amount", new_val)
+				if err := app.Save(record_to_update); err != nil {
+					return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save transaction"})
+				}
+
+			} else {
+				record = core.NewRecord(ledger)
+				record.Set("payer", data.Payer[0])
+				record.Set("payee", data.Payee[0])
+				record.Set("group", groupId)
+				record.Set("amount", data.Amount)
+
+				if err := app.Save(record); err != nil {
+					return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save transaction"})
+				}
 			}
 
 			return e.JSON(http.StatusOK, record)
@@ -163,6 +186,7 @@ func main() {
 		// Given a group and a user tell me their balances
 		se.Router.GET("/api/balances", func(e *core.RequestEvent) error {
 			groupName := e.Request.URL.Query().Get("groupName")
+			userID := e.Request.URL.Query().Get("userID")
 
 			if groupName == "" {
 				return e.JSON(http.StatusBadRequest, map[string]string{
@@ -170,25 +194,20 @@ func main() {
 				})
 			}
 
-			// the way this is going to work is its going to use a dictionaryu
-			// where each key is a new payee name and the value is just how much
-			// is currently owed to them.
-			// then can just iterate over all relevant records to get the total
+			// grab the groupId from the groupName
+			groups, err := e.App.FindRecordsByFilter("groups", "name = {:groupName}", "-created", 0, 0,
+				dbx.Params{"groupName": groupName})
 
-			// literalyl just need the user and the group
-			// then we just filter the personal ledger by those two
-			// then for each
-			// wait weve imagined it all wrong
-			// it needs to record a transaction both ways.
-			// could do any their involved in as well
-			// like do money owed to them then run it again but do money they owe
-			// not efficient whatsoever
-			// could manage it in the same way as a dictionary
-			// which is to say where theres an entry without that owner and that payee
-			// create one or if there is one alter the amount.
-			// this would definitely be the fastest by far and would require very minimal lookups
-			// could liter
-			return e.JSON(http.StatusAccepted, nil)
+			if err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Can't find group."})
+			}
+
+			groupId := groups[0].Get("id")
+			already_exists, _ := e.App.FindRecordsByFilter("personal_ledger", "payer = {:payer} && group = {:groupID}", "-created", 0, 0,
+				dbx.Params{"payer": userID, "groupID": groupId})
+
+			app.ExpandRecords(already_exists, []string{"payee", "payer"}, nil)
+			return e.JSON(http.StatusAccepted, already_exists)
 
 		})
 		return se.Next()

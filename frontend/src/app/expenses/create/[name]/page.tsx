@@ -105,7 +105,7 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl text-red font-bold mb-6 text-center">Create expense for group {groupName}</h1>
+            <h1 className="text-3xl text-red font-bold mb-6 text-center">Create expense for {groupName}</h1>
             {error ? <h2>{error}</h2> : ""}
             <form onSubmit={handleSubmit} className="max-w-md mx-auto p-4 text-red bg-white rounded space-y-4">
                 <input
