@@ -23,6 +23,11 @@ type dataType struct {
 	GroupName string   `json:"groupName"`
 }
 
+type groupType struct {
+	GroupName    string   `json:"groupName"`
+	GroupMembers []string `json:"groupMembers"`
+}
+
 func main() {
 	app := pocketbase.New()
 
@@ -86,10 +91,23 @@ func main() {
 		se.Router.GET("/api/users", func(e *core.RequestEvent) error {
 			groupName := e.Request.URL.Query().Get("groupName")
 
+			fmt.Println("Made it to the users")
+
 			if groupName == "" {
-				return e.JSON(http.StatusBadRequest, map[string]string{
-					"error": "Missing groupName parameter",
-				})
+
+				fmt.Println("Inside no groupName")
+				// if group name is empty return list of all users
+				users, err := e.App.FindAllRecords("users")
+
+				fmt.Printf("These are the users that we found %v", users)
+
+				if err != nil {
+					return e.JSON(http.StatusBadRequest, map[string]string{
+						"error": "Missing groupName parameter",
+					})
+				}
+
+				return e.JSON(http.StatusOK, users)
 			}
 
 			users, err := e.App.FindRecordsByFilter("groups", "name = {:groupName}", "-created", 0, 0,
@@ -149,6 +167,10 @@ func main() {
 			already_exists, _ := e.App.FindRecordsByFilter("personal_ledger", "payer = {:payer} && payee = {:payee} && group = {:groupID}", "-created", 0, 0,
 				dbx.Params{"payer": data.Payer[0], "payee": data.Payee[0], "groupID": groupId})
 
+			// this is a shockingly bad implementation but oh well
+			inverted_already_exists, _ := e.App.FindRecordsByFilter("personal_ledger", "payer = {:payee} && payee = {:payer} && group = {:groupID}", "-created", 0, 0,
+				dbx.Params{"payer": data.Payer[0], "payee": data.Payee[0], "groupID": groupId})
+
 			if len(already_exists) != 0 {
 				// update the record
 				record_to_update := already_exists[0]
@@ -162,6 +184,26 @@ func main() {
 				}
 
 				new_val := floatVal + float64(amount_to_change)
+
+				record_to_update.Set("amount", new_val)
+				if err := app.Save(record_to_update); err != nil {
+					return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save transaction"})
+				}
+
+			} else if len(inverted_already_exists) != 0 {
+				// same as above but needd to minus not add
+				// update the record
+				record_to_update := inverted_already_exists[0]
+				amount_to_change, _ := strconv.ParseFloat(data.Amount, 64)
+
+				floatVal, ok := record_to_update.Get("amount").(float64)
+
+				if !ok {
+					// It might be stored as float64 depending on how PocketBase parsed the JSON
+					log.Fatalf("Amount is not a number: %v", record_to_update.Get("amount"))
+				}
+
+				new_val := floatVal - float64(amount_to_change)
 
 				record_to_update.Set("amount", new_val)
 				if err := app.Save(record_to_update); err != nil {
@@ -203,13 +245,44 @@ func main() {
 			}
 
 			groupId := groups[0].Get("id")
-			already_exists, _ := e.App.FindRecordsByFilter("personal_ledger", "payer = {:payer} && group = {:groupID}", "-created", 0, 0,
+
+			// grab all records where its this group and either the user is payee or the payer
+			already_exists, _ := e.App.FindRecordsByFilter("personal_ledger", "(payer = {:payer} || payee = {:payer})&& group = {:groupID}", "-created", 0, 0,
 				dbx.Params{"payer": userID, "groupID": groupId})
 
 			app.ExpandRecords(already_exists, []string{"payee", "payer"}, nil)
 			return e.JSON(http.StatusAccepted, already_exists)
 
 		})
+
+		// given a form lets create a group record
+		se.Router.POST("/api/create_group", func(e *core.RequestEvent) error {
+
+			data := groupType{}
+
+			if err := e.BindBody(&data); err != nil {
+				return e.JSON(http.StatusBadRequest, map[string]string{"Error": "Invalid Request body."})
+			}
+
+			// now we have the name and the group members just need to create a new record
+			groups, err := app.FindCollectionByNameOrId("groups")
+			if err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Failed to find groups table."})
+			}
+
+			record := core.NewRecord(groups)
+			record.Set("name", data.GroupName)
+			record.Set("users_in_group", data.GroupMembers)
+
+			fmt.Println("We have  ade it here and we have a recordd made")
+
+			if err := app.Save(record); err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save group"})
+			}
+
+			return e.JSON(http.StatusOK, record)
+		})
+
 		return se.Next()
 	})
 

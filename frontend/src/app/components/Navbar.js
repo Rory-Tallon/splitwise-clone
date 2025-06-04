@@ -18,9 +18,9 @@ export default function Navbar() {
     return (
         <nav className="bg-[#1CC29F] text-white p-4">
             <div className="container mx-auto flex justify-between items-center">
-                <Link href="/" className="text-xl font-bold">
+                <h1 className="text-xl font-bold">
                     Splitwise 2
-                </Link>
+                </h1>
                 <div className="space-x-4">
                     {user ? (
                         <>
