@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -26,6 +25,7 @@ type dataType struct {
 type groupType struct {
 	GroupName    string   `json:"groupName"`
 	GroupMembers []string `json:"groupMembers"`
+	GroupId      string   `json:"groupId"`
 }
 
 func main() {
@@ -50,7 +50,7 @@ func main() {
 			})
 
 			if err != nil {
-				fmt.Println("Error: ", err)
+
 				return e.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch groups"})
 			}
 
@@ -60,7 +60,6 @@ func main() {
 				groups_to_send = append(groups_to_send, group.GetString("name"))
 			}
 
-			fmt.Println("Made it to status ok", groups_to_send)
 			return e.JSON(http.StatusOK, groups_to_send)
 		})
 
@@ -91,15 +90,10 @@ func main() {
 		se.Router.GET("/api/users", func(e *core.RequestEvent) error {
 			groupName := e.Request.URL.Query().Get("groupName")
 
-			fmt.Println("Made it to the users")
-
 			if groupName == "" {
 
-				fmt.Println("Inside no groupName")
 				// if group name is empty return list of all users
 				users, err := e.App.FindAllRecords("users")
-
-				fmt.Printf("These are the users that we found %v", users)
 
 				if err != nil {
 					return e.JSON(http.StatusBadRequest, map[string]string{
@@ -128,7 +122,7 @@ func main() {
 			data := dataType{}
 
 			if err := e.BindBody(&data); err != nil {
-				fmt.Printf("ERROR %v\n", err)
+
 				return e.JSON(http.StatusBadRequest, map[string]string{"Error": "Invalid Request body."})
 			}
 
@@ -189,7 +183,6 @@ func main() {
 				if err := app.Save(record_to_update); err != nil {
 					return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save transaction"})
 				}
-
 			} else if len(inverted_already_exists) != 0 {
 				// same as above but needd to minus not add
 				// update the record
@@ -274,13 +267,51 @@ func main() {
 			record.Set("name", data.GroupName)
 			record.Set("users_in_group", data.GroupMembers)
 
-			fmt.Println("We have  ade it here and we have a recordd made")
+			if err := app.Save(record); err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save group"})
+			}
+
+			return e.JSON(http.StatusOK, record)
+		})
+
+		se.Router.POST("/api/edit_group", func(e *core.RequestEvent) error {
+			data := groupType{}
+
+			if err := e.BindBody(&data); err != nil {
+				return e.JSON(http.StatusBadRequest, map[string]string{"Error": "Invalid Request body."})
+			}
+
+			groups, err := e.App.FindRecordsByFilter("groups", "id = {:groupId}", "-created", 0, 0,
+				dbx.Params{"groupId": data.GroupId})
+
+			if err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Can't find group."})
+			}
+
+			record := groups[0]
+			record.Set("name", data.GroupName)
+			record.Set("users_in_group", data.GroupMembers)
 
 			if err := app.Save(record); err != nil {
 				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Unable to save group"})
 			}
 
 			return e.JSON(http.StatusOK, record)
+		})
+
+		// given a groupName grab the groupID
+		se.Router.GET("/api/groups_by_id", func(e *core.RequestEvent) error {
+
+			groupName := e.Request.URL.Query().Get("groupName")
+
+			groups, err := e.App.FindRecordsByFilter("groups", "name = {:groupName}", "-created", 0, 0,
+				dbx.Params{"groupName": groupName})
+
+			if err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{"Error": "Can't find group."})
+			}
+
+			return e.JSON(http.StatusOK, groups[0].Get("id"))
 		})
 
 		return se.Next()

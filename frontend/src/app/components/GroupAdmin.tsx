@@ -3,24 +3,29 @@ import { useRouter } from 'next/navigation';
 
 interface GroupAdminDisplayProps {
     groupName: string;
-    groupMembers: string[];
+    groupMembers: User[];
+    groupId: string
 }
 
 interface User {
     name: string,
-    id: number,
+    id: string,
 }
 
-export default function GroupAdminDisplay({ groupName, groupMembers }: GroupAdminDisplayProps) {
+interface FormState {
+    groupName: string,
+    groupMembers: string[]
+}
 
-    const [users, setUsers] = useState<User[] | null>(null)
+export default function GroupAdminDisplay({ groupName, groupMembers, groupId }: GroupAdminDisplayProps) {
+
+    const [users, setUsers] = useState<User[]>([])
     const router = useRouter()
 
-    const [form, setForm] = useState({
-        groupMembers: groupMembers,
+    const [form, setForm] = useState<FormState>({
+        groupMembers: [],
         groupName: groupName,
     }) // store all of our form data here
-
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -35,6 +40,15 @@ export default function GroupAdminDisplay({ groupName, groupMembers }: GroupAdmi
         };
         fetchUsers()
     }, [])
+
+    useEffect(() => {
+        if (users.length > 0 && groupMembers.length > 0) {
+            setForm((prev) => ({
+                ...prev,
+                groupMembers: groupMembers.map(u => u.id)
+            }))
+        }
+    }, [users])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -54,17 +68,21 @@ export default function GroupAdminDisplay({ groupName, groupMembers }: GroupAdmi
             return;
         }
 
-        const response = await fetch("/api/proxy/api/create_group", {
+        const formToSend = {
+            ...form,
+            groupId: groupId
+        }
+
+        const response = await fetch("/api/proxy/api/edit_group", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(form),
+            body: JSON.stringify(formToSend),
         });
 
         if (!response.ok) {
             const error = await response.json();
-            console.log("ERRROR: ", error)
         }
 
         // redirect back to group page
@@ -100,7 +118,7 @@ export default function GroupAdminDisplay({ groupName, groupMembers }: GroupAdmi
                     type="submit"
                     className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
                 >
-                    Create Group
+                    {groupName == "" ? "Create Group" : "Edit Group"}
                 </button>
             </form>
         </div>

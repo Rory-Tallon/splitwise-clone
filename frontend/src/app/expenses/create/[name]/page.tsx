@@ -43,7 +43,6 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
             const res = await fetch(`/api/proxy/api/users?groupName=${groupName}`);
             const msg = await res.json();
             if (res.ok) {
-                console.log("These are the users: ", msg[0].expand.users_in_group)
                 let userDetails: any = msg[0].expand?.users_in_group
                 // userNames: User[] = userDetails.map(user => {user.name)
                 setUsers(userDetails)
@@ -73,12 +72,10 @@ export default function CreateExpensePage({ params }: { params: Promise<{ name: 
             groupName: groupName
         }
 
-        console.log("definitely making it to a race")
-
         if (!formToSend.payer || !formToSend.name || !formToSend.payee || !formToSend.amount || formToSend.groupName === "") {
             return;
         }
-        console.log(formToSend)
+        (formToSend)
 
         try {
 

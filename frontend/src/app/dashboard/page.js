@@ -22,8 +22,8 @@ export default function Dashboard() {
         router.push(`/groups/`);
     }
 
-    const handleGroupEdit = () => {
-        console.log("Edit group")
+    const handleGroupEdit = (groupName) => {
+        router.push(`/groups/edit/${groupName}`);
     }
 
 
@@ -43,7 +43,7 @@ export default function Dashboard() {
     useEffect(() => {
         if (!user) return;
 
-        console.log("User has been grabbed")
+        ("User has been grabbed")
 
         const fetchData = async () => {
             const res = await fetch(`/api/proxy/api/groups/`, {
